@@ -149,12 +149,6 @@ trait=${trait} wdir=${wdir} bed=${bed} phenofile=${phenofile} covarfile=${covarf
 
 
 
-
-
-
-
-
-
 #######################################################
 
 awk '{print $1,$2,$2,$2}' /medpop/esp2/projects/MGB_Biobank/genotype/30K_GSA/result/merged_hg38/GSA_30K_hg38.fam > GSA_30K_hg38_sameFID.IID.txt
