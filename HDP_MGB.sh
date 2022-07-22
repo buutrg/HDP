@@ -1,3 +1,4 @@
+#!/bin/bash
 use Regenie
 
 
@@ -2258,8 +2259,175 @@ cp ${trait}_allchr_maf0.001_hg38.regenie $WDIR/Projects/HDP/corrected_sumstat
 
 
 
+####################################################
+
+
+cd $BDIR/HDP/data
+
+
+trait_list="preec geshtn"
+ancestry_list="European African Asian"
+omit=""
+# omit="UKB,HUNT,PMBB"
+
+
+for trait in ${trait_list}; do
+  for ancestry in ${ancestry_list}; do
+    
+    # trait=preec
+    # trait=geshtn
+    # ancestry=European
+    # ancestry=African
+    # # ancestry=Asian
+
+    # out=metal_${trait}_${ancestry}_allBiobanks_
+    out=metal_${trait}_${ancestry}_allBiobanks_omit.UKB.HUNT.PMBB
+
+
+    awk -v trait=${trait} -v ancestry=${ancestry} ' {
+      if (FNR==1) { print $0; next } 
+      if ($1==trait && $3==ancestry){$19=0; print $0}
+    }' OFS="\t" /medpop/esp2/btruong/Projects/HDP/data/sumstat_list.tsv > sumstat_list_${trait}_${ancestry}_allBiobanks.tsv
+
+    Rscript /medpop/esp2/btruong/Projects/HDP/scripts/write_for_metal.R --list_sumstat sumstat_list_${trait}_${ancestry}_allBiobanks.tsv --trait=${trait} --ancestry=${ancestry} --out=${out}
+
+    wdir=/broad/hptmp/btruong/HDP/data
+    metalfile=${out}running.sh omit=${omit} wdir=${wdir} $WDIR/codes/create_metal.sh
+  done
+done
+
+######################################### METAL By Biobank
+
+cd $BDIR/HDP/data
+
+
+trait_list="preec geshtn"
+# ancestry_list="European African Asian"
+ancestry_list="European African Asian European.African.Asian.Hispanic European.African.Asian"
+omit="UKB.HUNT.PMBB"
+omit="None"
+
+
+for trait in ${trait_list}; do
+  for ancestry in ${ancestry_list}; do
+    
+    # trait=preec
+    # trait=geshtn
+    # ancestry=European
+    # ancestry=European.African.Asian.Hispanic
+    # ancestry=African
+    # # ancestry=Asian
+    
+    out=metal_${trait}_${ancestry}_allBiobanks_omit${omit}_
+
+    awk -v trait=${trait} -v ancestry=${ancestry} -v omit=${omit} '
+    BEGIN{
+      split(ancestry,ancestry_list,".")
+      for (i=1;i<=length(ancestry_list);i++) 
+        arr[ancestry_list[i]]=1
+      
+      split(omit,omit_list,".")
+      for (i=1;i<=length(omit_list);i++) 
+        arr1[omit_list[i]]=1
+      
+    }
+    {
+      if (FNR==1) { print $0; next }
+      if ($1==trait && arr[$3] && !arr1[$2]) {$19=0; print $0}
+    }' OFS="\t" /medpop/esp2/btruong/Projects/HDP/data/sumstat_list.tsv > sumstat_list_${trait}_${ancestry}_allBiobanks_omit${omit}.tsv
+
+    Rscript /medpop/esp2/btruong/Projects/HDP/scripts/write_for_metal.R --list_sumstat sumstat_list_${trait}_${ancestry}_allBiobanks_omit${omit}.tsv --trait=${trait} --ancestry=${ancestry} --out=${out}
+
+    wdir=/broad/hptmp/btruong/HDP/data
+    metalfile=${out}running.sh wdir=${wdir} $WDIR/codes/create_metal.sh
+  done
+done
+
+
+
+awk -v trait=${trait} -v ancestry=${ancestry} ' {
+  if (FNR==1) { print $0; next } 
+  if ($1==trait && $3==ancestry){$19=0; print $0}
+}' OFS="\t" /medpop/esp2/btruong/Projects/HDP/data/sumstat_list.tsv > sumstat_list_${trait}_${ancestry}_allBiobanks.tsv
+
+Rscript /medpop/esp2/btruong/Projects/HDP/scripts/write_for_metal.R --list_sumstat sumstat_list_${trait}_${ancestry}_allBiobanks.tsv --trait=${trait} --ancestry=${ancestry} --out=${out}
+
+
+wdir=/broad/hptmp/btruong/HDP/data
+metalfile=${out}running.sh omit=${omit} wdir=${wdir} $WDIR/codes/create_metal.sh
 
 
 
 
+
+
+
+
+for jobs in {32542148..32542163}; do
+  qdel ${jobs}
+done
+
+
+
+
+
+################### $WDIR/codes/create_metal.sh
+
+echo "#!/bin/bash -l
+#$ -N metal_${metalfile}
+#$ -pe smp 4 -R y -binding linear:4
+#$ -wd /medpop/esp2/btruong/Projects/logjobs
+#$ -R y 
+#$ -j y
+#$ -l h_rt=3:30:00
+#$ -l s_rt=3:30:00
+#$ -l h_vmem=8G
+#$ -V
+
+
+source /broad/software/scripts/useuse
+source ~/.my.bashrc
+use GCC-5.2
+
+
+
+cd ${wdir}
+
+metal ${metalfile}
+" > tmp.sh
+
+qsub tmp.sh
+
+
+##################################
+
+trait=composite
+trait=preec
+# trait=geshtn
+
+# ancestry=European
+# ancestry=European.Hispanic
+# ancestry=Asian
+
+trait_list="preec composite geshtn"
+trait_list="preec"
+# trait_list="composite"
+# trait_list="geshtn"
+# ancestry_list="European European.Hispanic European.Hispanic.Asian"
+ancestry_list="European.Hispanic.Asian.African"
+ancestry_list="European.African"
+# ancestry_list="European"
+
+
+cd /medpop/esp2/btruong/Projects/HDP/jobs
+
+for trait in $trait_list; do
+  echo ${trait}
+  for ancestry in $ancestry_list; do
+    echo "---${ancestry}"
+    out=metal_ukb.pmbb.hunt_${trait}_${ancestry}_
+    trait=${trait} ancestry=${ancestry} out=${out} /medpop/esp2/btruong/Projects/HDP/scripts/make_metal.sh
+    cat tmp.sh
+  done
+done
 
